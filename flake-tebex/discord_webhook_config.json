@@ -1,0 +1,12 @@
+{
+    "enabled": true,
+    "webhook_url": "",
+    "colors": {
+        "package_created": 5793266,
+        "package_claimed": 5763719,
+        "code_created": 7419530,
+        "code_redeemed": 2067276
+    },
+    "botName": "Flake Tebex",
+    "botAvatar": ""
+}
