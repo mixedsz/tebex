@@ -45,6 +45,17 @@ function Framework.GetIdentifier(player)
     return nil
 end
 
+-- Add cash money to player
+function Framework.AddMoney(source, amount)
+    if frameworkName == 'qbcore' then
+        local player = QBCore.Functions.GetPlayer(source)
+        if player then player.Functions.AddMoney('cash', amount) end
+    elseif frameworkName == 'esx' then
+        local player = ESX.GetPlayerFromId(source)
+        if player then player.addMoney(amount) end
+    end
+end
+
 -- Add item to player inventory
 function Framework.AddItem(player, item, amount)
     if frameworkName == 'qbcore' then

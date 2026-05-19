@@ -1,153 +1,39 @@
--- flake Tebex Client Script
--- This script handles the client-side functionality for the Tebex store integration
+-- /redeem — players type this after completing a Tebex purchase.
+-- An ox_lib input dialog asks for the transaction code from their
+-- purchase confirmation email (e.g. tbx-xxxxxxxxxxxxxxxxxxxxxxxx).
 
--- Event to show available packages
-RegisterNetEvent('flake-tebex:ShowPackages', function(packages)
-    if not packages or #packages == 0 then
-        lib.notify({
-            title = 'No Packages',
-            description = 'You don\'t have any packages to claim',
-            type = 'error'
-        })
-        return
-    end
-
-    -- Format packages for menu
-    local menuItems = {}
-    for _, pkg in ipairs(packages) do
-        table.insert(menuItems, {
-            title = pkg.title,
-            description = 'Package ID: ' .. pkg.id,
-            onSelect = function()
-                TriggerServerEvent('flake-tebex:GetPackageDetails', pkg.id)
-            end
-        })
-    end
-
-    -- Show menu
-    lib.registerContext({
-        id = 'tebex_packages_menu',
-        title = 'Your Packages',
-        options = menuItems
+RegisterCommand('redeem', function()
+    local input = lib.inputDialog('Tebex Redeem', {
+        {
+            type        = 'input',
+            label       = 'Transaction Code',
+            description = 'Enter the transaction code from your Tebex purchase confirmation email.',
+            placeholder = 'tbx-xxxxxxxxxxxxxxxxxxxxxxxx',
+            required    = true,
+            min         = 4,
+            max         = 64,
+        },
     })
 
-    lib.showContext('tebex_packages_menu')
-end)
+    if not input or not input[1] or input[1] == '' then return end
 
--- Event to show package details
-RegisterNetEvent('flake-tebex:ShowPackageDetails', function(packageID, packageData)
-    if not packageData then return end
+    local code = input[1]:gsub('%s+', '')
 
-   -- print("[flake Tebex] Showing package details for: " .. packageID)
-   -- print("[flake Tebex] Package title: " .. packageData.title)
+    lib.notify({
+        title       = 'Tebex',
+        description = 'Verifying your code, please wait...',
+        type        = 'inform',
+        duration    = 4000,
+    })
 
-    -- Format included items for display
-    local includedText = ''
-    for _, text in ipairs(packageData.included_text) do
-        includedText = includedText .. '• ' .. text .. '\n'
-    end
-
-    -- Check if there are selectable options
-    local hasOptions = false
-    local optionMenus = {}
-
-   -- print("[flake Tebex] Checking for selectable options...")
-   -- print("[flake Tebex] Number of rewards: " .. #packageData.included_rewards)
-
-    for i, reward in ipairs(packageData.included_rewards) do
-       -- print("[flake Tebex] Checking reward " .. i)
-        if reward.option then
-           -- print("[flake Tebex] Found selectable option: " .. (reward.label or "Unnamed"))
-            hasOptions = true
-
-            -- Create option menu
-            local options = {}
-            for j, option in ipairs(reward.option) do
-               -- print("[flake Tebex] Adding option: " .. (option.label or option.model))
-                table.insert(options, {
-                    value = option.model,
-                    label = option.label .. " (" .. option.model .. ")"
-                })
-            end
-
-            table.insert(optionMenus, {
-                type = 'select',
-                label = reward.label,
-                description = reward.placeholder or 'Select an option',
-                options = options,
-                required = true
-            })
-        else
-           -- print("[flake Tebex] Reward " .. i .. " is not selectable")
-        end
-    end
-
-    if hasOptions then
-       -- print("[flake Tebex] Package has selectable options, showing selection dialog")
-        -- Show selection menu first
-        local inputs = lib.inputDialog('Select Package Options', optionMenus)
-
-        if not inputs then
-          --  print("[flake Tebex] User cancelled selection")
-            return
-        end
-
-       -- print("[flake Tebex] User made selections: " .. json.encode(inputs))
-
-        -- Confirm selection
-        local selectedOptions = {}
-        local selectionText = 'Selected options:\n'
-
-        for i, selection in ipairs(inputs) do
-            table.insert(selectedOptions, selection)
-
-            -- Find the label for this selection
-            for _, option in ipairs(optionMenus[i].options) do
-                if option.value == selection then
-                    selectionText = selectionText .. '• ' .. option.label .. '\n'
-                    break
-                end
-            end
-        end
-
-        -- Show confirmation dialog
-        local confirm = lib.alertDialog({
-            header = 'Confirm Package Claim',
-            content = 'Package: ' .. packageData.title .. '\n\n' .. includedText .. '\n' .. selectionText,
-            cancel = true
-        })
-
-        if confirm == 'confirm' then
-            --print("[flake Tebex] User confirmed package claim with selections")
-            TriggerServerEvent('flake-tebex:ClaimPackage', packageID, selectedOptions)
-        else
-            --print("[flake Tebex] User cancelled package claim")
-        end
-    else
-       -- print("[flake Tebex] Package has no selectable options, showing confirmation dialog")
-        -- No options, just confirm
-        local confirm = lib.alertDialog({
-            header = 'Confirm Package Claim',
-            content = 'Package: ' .. packageData.title .. '\n\n' .. includedText,
-            cancel = true
-        })
-
-        if confirm == 'confirm' then
-            --print("[flake Tebex] User confirmed package claim")
-            TriggerServerEvent('flake-tebex:ClaimPackage', packageID, {})
-        else
-           -- print("[flake Tebex] User cancelled package claim")
-        end
-    end
-end)
-
--- Register command for opening packages menu
-RegisterCommand('packages', function()
-    TriggerServerEvent('flake-tebex:GetPackages')
+    TriggerServerEvent('flake-tebex:RedeemTransaction', code)
 end, false)
 
--- Register key binding for packages menu
-RegisterKeyMapping('packages', 'Open packages menu', 'keyboard', 'F7')
-
--- Initialize
-print('[flake Tebex] Client initialized')
+RegisterNetEvent('flake-tebex:Notify', function(msg, notifType)
+    lib.notify({
+        title       = 'Tebex',
+        description = msg,
+        type        = notifType or 'inform',
+        duration    = 7000,
+    })
+end)
