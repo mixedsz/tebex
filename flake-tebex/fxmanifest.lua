@@ -4,6 +4,11 @@ description 'Flake Tebex claiming system'
 
 lua54 'yes'
 
+dependencies {
+    'ox_lib',
+    'oxmysql',
+}
+
 -- Load config files first
 shared_scripts {
     'config/packages.lua'
@@ -19,7 +24,7 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     './modules/discord_webhook/server.lua',
     './server.lua',
-    './modules/**/*.lua'
+    './modules/codes/server.lua'
 }
 
 server_exports {
@@ -31,7 +36,7 @@ server_exports {
 
 client_scripts {
     './client.lua',
-    './modules/**/*.lua'
+    './modules/codes/client.lua'
 }
 
 escrow_ignore {

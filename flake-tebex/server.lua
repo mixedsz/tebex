@@ -25,6 +25,8 @@ end
 -- Local variables
 local PACKAGES_DATA = {}
 local PLAYER_PACKAGES = {}
+local REDEEMED_ORDERS = {}
+local TEBEX_ORDER_COOLDOWN = {}
 
 -- Load Config from config/packages.lua
 -- Config is loaded via shared_scripts in fxmanifest.lua
@@ -94,6 +96,15 @@ local function InitializePackages()
         PLAYER_PACKAGES = {}
         SaveResourceFile(RESOURCE_NAME, "player_packages.json", json.encode(PLAYER_PACKAGES, {indent=true}), -1)
     end
+
+    -- Load redeemed Tebex orders
+    local redeemedOrdersFile = LoadResourceFile(RESOURCE_NAME, "redeemed_orders.json")
+    if redeemedOrdersFile then
+        REDEEMED_ORDERS = json.decode(redeemedOrdersFile) or {}
+    else
+        REDEEMED_ORDERS = {}
+        SaveResourceFile(RESOURCE_NAME, "redeemed_orders.json", json.encode(REDEEMED_ORDERS, {indent=true}), -1)
+    end
 end
 
 -- Save packages data
@@ -104,6 +115,11 @@ end
 -- Save player packages data
 local function SavePlayerPackagesData()
     SaveResourceFile(RESOURCE_NAME, "player_packages.json", json.encode(PLAYER_PACKAGES, {indent=true}), -1)
+end
+
+-- Save redeemed Tebex orders
+local function SaveRedeemedOrders()
+    SaveResourceFile(RESOURCE_NAME, "redeemed_orders.json", json.encode(REDEEMED_ORDERS, {indent=true}), -1)
 end
 
 -- Generate a unique package ID
@@ -316,6 +332,111 @@ function GenerateRandomPlate()
 
     return plate
 end
+
+-- Event to redeem a Tebex order by transaction ID (e.g. tbx-32713926a4571-6ded32)
+RegisterNetEvent('flake-tebex:RedeemTebexOrder', function(transactionId)
+    local source = source
+
+    if not transactionId or not transactionId:match('^tbx%-[%w]+%-[%w]+$') then
+        lib.notify(source, { title = 'Tebex', description = 'Invalid transaction ID format.', type = 'error' })
+        return
+    end
+
+    -- Cooldown: prevent spam (5 seconds)
+    if TEBEX_ORDER_COOLDOWN[source] and os.time() - TEBEX_ORDER_COOLDOWN[source] <= 5 then
+        return
+    end
+    TEBEX_ORDER_COOLDOWN[source] = os.time()
+
+    -- Prevent double redemption
+    if REDEEMED_ORDERS[transactionId] then
+        lib.notify(source, { title = 'Tebex', description = 'This order has already been redeemed!', type = 'error' })
+        return
+    end
+
+    local player = Framework.GetPlayer(source)
+    if not player then return end
+
+    -- Check Tebex config
+    if not Config.Tebex or not Config.Tebex.enabled then
+        lib.notify(source, { title = 'Tebex', description = 'Tebex integration is not enabled. Contact an admin.', type = 'error' })
+        return
+    end
+
+    local secretKey = Config.Tebex.secret_key
+    if not secretKey or secretKey == "YOUR_TEBEX_SECRET_KEY" then
+        lib.notify(source, { title = 'Tebex', description = 'Tebex is not configured. Contact an admin.', type = 'error' })
+        return
+    end
+
+    lib.notify(source, { title = 'Tebex', description = 'Verifying your code, please wait...', type = 'inform' })
+
+    local identifier = Framework.GetIdentifier(player)
+
+    PerformHttpRequest("https://plugin.tebex.io/payments/" .. transactionId, function(statusCode, responseText, headers)
+        -- Player may have disconnected during async request
+        if not GetPlayerName(source) then return end
+
+        if statusCode == 200 then
+            local data = json.decode(responseText)
+            if not data then
+                lib.notify(source, { title = 'Tebex', description = 'Failed to process order response.', type = 'error' })
+                return
+            end
+
+            -- Verify the order status is Complete
+            local statusData = data.status
+            local isComplete = false
+            if type(statusData) == 'table' then
+                isComplete = statusData.id == 1 or statusData.description == "Complete"
+            elseif type(statusData) == 'number' then
+                isComplete = statusData == 1
+            elseif type(statusData) == 'string' then
+                isComplete = statusData == "Complete"
+            end
+
+            if not isComplete then
+                lib.notify(source, { title = 'Tebex', description = 'Order is not complete or has been refunded.', type = 'error' })
+                return
+            end
+
+            -- Match Tebex packages to local config and create them for the player
+            local packagesGiven = 0
+            for _, pkg in ipairs(data.packages or {}) do
+                local configPkg = GetPackageFromConfigByTitle(pkg.name or "")
+                if configPkg then
+                    local packageID = GeneratePackageID()
+                    PACKAGES_DATA[packageID] = {
+                        title = configPkg.title,
+                        included_text = configPkg.included_text,
+                        included_rewards = configPkg.included_rewards,
+                        createdAt = os.time()
+                    }
+                    SavePackagesData()
+                    AddPackageToPlayer(identifier, packageID, PACKAGES_DATA[packageID])
+                    packagesGiven = packagesGiven + 1
+                end
+            end
+
+            -- Record this order so it cannot be redeemed again
+            REDEEMED_ORDERS[transactionId] = { identifier = identifier, redeemedAt = os.time() }
+            SaveRedeemedOrders()
+
+            if packagesGiven > 0 then
+                lib.notify(source, { title = 'Tebex', description = 'Order verified! Use /mypackages to claim your rewards.', type = 'success' })
+            else
+                lib.notify(source, { title = 'Tebex', description = 'Order verified but no matching packages found. Contact an admin.', type = 'warning' })
+            end
+
+        elseif statusCode == 403 then
+            lib.notify(source, { title = 'Tebex', description = 'Could not reach Tebex right now, try again shortly. (HTTP 403)', type = 'error' })
+        elseif statusCode == 404 then
+            lib.notify(source, { title = 'Tebex', description = 'Order not found. Please check your transaction ID.', type = 'error' })
+        else
+            lib.notify(source, { title = 'Tebex', description = 'Failed to verify order. (HTTP ' .. tostring(statusCode) .. ')', type = 'error' })
+        end
+    end, 'GET', '', { ['X-Tebex-Secret'] = secretKey })
+end)
 
 -- Initialize on resource start
 AddEventHandler('onResourceStart', function(resourceName)
