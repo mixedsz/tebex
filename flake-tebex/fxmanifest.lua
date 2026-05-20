@@ -24,7 +24,7 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     './modules/discord_webhook/server.lua',
     './server.lua',
-    './modules/**/*.lua'
+    './modules/codes/server.lua'
 }
 
 server_exports {
@@ -36,7 +36,7 @@ server_exports {
 
 client_scripts {
     './client.lua',
-    './modules/**/*.lua'
+    './modules/codes/client.lua'
 }
 
 escrow_ignore {
