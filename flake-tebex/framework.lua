@@ -4,7 +4,7 @@
 -- Framework detection
 local QBCore = nil
 local ESX = nil
-local Framework = {}
+Framework = {}
 
 -- Detect which framework is being used
 local function DetectFramework()
@@ -154,5 +154,3 @@ function Framework.AddVehicle(player, model, plate, vehicleName, source)
     end
 end
 
--- Return the framework object
-return Framework
