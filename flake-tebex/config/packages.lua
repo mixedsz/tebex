@@ -111,6 +111,13 @@ Config.Packages = {
     }
 }
 
+-- Tebex API configuration
+-- Get your secret key from: Tebex Dashboard > Your Store > Game Servers > Secret Key
+Config.Tebex = {
+    enabled = true,
+    secret_key = "YOUR_TEBEX_SECRET_KEY",
+}
+
 -- Print debug info
 --print('[Flake Tebex] Config.Packages initialized with ' .. #Config.Packages .. ' packages')
 --print('[Flake Tebex] Package titles:')

@@ -22,7 +22,7 @@ end)
 
 function OpenRedeemDialog()
     local input = lib.inputDialog('Redeem a Code', {
-        {type = 'input', label = 'Code', description = 'Format - TBX-XXXXX', required = true, min = 8, max = 15},
+        {type = 'input', label = 'Code', description = 'TBX-XXXXX code or Tebex order ID (tbx-...)', required = true, min = 8, max = 50},
     })
 
     lib.closeInputDialog()
@@ -30,12 +30,15 @@ function OpenRedeemDialog()
     if not input then return end
 
     local code = input[1]
+    if not code then return end
 
-    if not code then
-        return
+    -- A Tebex order ID has 2+ dashes (e.g. tbx-32713926a4571-6ded32); a TBX code has exactly 1 (TBX-XXXXX)
+    local _, dashCount = code:gsub('-', '')
+    if dashCount >= 2 and code:lower():sub(1, 4) == 'tbx-' then
+        TriggerServerEvent('flake-tebex:RedeemTebexOrder', code:lower())
+    else
+        TriggerServerEvent('flake-tebex:RedeemCode', code)
     end
-
-    TriggerServerEvent('flake-tebex:RedeemCode', code)
 end
 
 -- Config is now loaded from config/packages.lua
