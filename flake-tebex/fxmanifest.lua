@@ -4,6 +4,11 @@ description 'Flake Tebex claiming system'
 
 lua54 'yes'
 
+dependencies {
+    'ox_lib',
+    'oxmysql',
+}
+
 -- Load config files first
 shared_scripts {
     'config/packages.lua'
