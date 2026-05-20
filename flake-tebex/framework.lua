@@ -4,7 +4,7 @@
 -- Framework detection
 local QBCore = nil
 local ESX = nil
-local Framework = {}
+Framework = {}
 
 -- Detect which framework is being used
 local function DetectFramework()
@@ -43,6 +43,17 @@ function Framework.GetIdentifier(player)
         return player.identifier
     end
     return nil
+end
+
+-- Add cash money to player
+function Framework.AddMoney(source, amount)
+    if frameworkName == 'qbcore' then
+        local player = QBCore.Functions.GetPlayer(source)
+        if player then player.Functions.AddMoney('cash', amount) end
+    elseif frameworkName == 'esx' then
+        local player = ESX.GetPlayerFromId(source)
+        if player then player.addMoney(amount) end
+    end
 end
 
 -- Add item to player inventory
@@ -143,5 +154,3 @@ function Framework.AddVehicle(player, model, plate, vehicleName, source)
     end
 end
 
--- Return the framework object
-return Framework
